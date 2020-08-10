@@ -1,0 +1,9 @@
+{{define "loginSignupForm"}}
+<form method="POST" action="/{{if .IsLogin}}login{{else}}signup{{end}}">
+    <label>Email:</label><br />
+    <input type="email" name="username"><br />
+    <label>Password:</label><br />
+    <input type="text" name="password"><br />
+    <input type="submit">
+</form>
+{{end}}

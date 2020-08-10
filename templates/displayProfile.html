@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <h1>Profile</h1>
+    <table>
+        <tr>
+            <th>Full Name</th>
+            <th>Address</th>
+            <th>Phone</th>
+            <th>Username</th>
+        </tr>
+        <tr>
+            <td>{{ .User.FullName}}</td>
+            <td>{{ .User.Address}}</td>
+            <td>{{ .User.Phone}}</td>
+            <td>{{ .User.Username}}</td>
+        </tr>
+    </table>
+
+    <a href="/user/{{ .User.ID}}/edit">Edit</a>
+</body>
+</html>

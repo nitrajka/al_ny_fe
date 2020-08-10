@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <h1>Profile</h1>
+    {{ .Msg}}
+    <form method="POST" action="/user/{{ .User.ID}}/edit">
+        <label>Username:</label><br />
+        <input type="email" name="email" value="{{ .User.Username}}" {{if .User.IsGoogleRegistered}}disabled{{end}}><br />
+        <label>Full Name:</label><br />
+        <input type="text" name="fullname" value="{{ .User.FullName}}"><br />
+        <label>Phone:</label><br />
+        <input type="text" name="phone" value="{{ .User.Phone}}"><br />
+        <label>Address:</label><br />
+        <input type="text" name="address" value="{{ .User.Address}}"><br />
+        <input type="submit">
+    </form>
+
+</body>
+</html>
