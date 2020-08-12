@@ -46,7 +46,7 @@ func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*Use
 	router.POST("/password/new/:token/:mail", us.RefreshPassword)
 
 	us.oauthConfig = &oauth2.Config{
-		RedirectURL:  "http://localhost:8002/login/google/success",
+		RedirectURL:  selfAddr + "/login/google/success",
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
