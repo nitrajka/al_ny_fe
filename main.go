@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/nitrajka/al_ny_fe/pkg/api"
 	"os"
+
+	"github.com/nitrajka/al_ny_fe/pkg/api"
 )
 
 func main() {

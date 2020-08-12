@@ -6,20 +6,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/oauth2"
 	"html/template"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"golang.org/x/oauth2"
 )
 
 const oauthGoogleUrlAPI = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
 
 func getUser(restApiAddr, token string) *User {
-	req, _ := http.NewRequest(http.MethodGet, restApiAddr + "/user", nil )
+	req, _ := http.NewRequest(http.MethodGet, restApiAddr+"/user", nil)
 	resp, _ := http.DefaultClient.Do(req)
 
 	var bodyBytes []byte
@@ -60,7 +61,7 @@ func parseFormToPayload(values url.Values) string {
 func loadAndExecuteTemplate(c *gin.Context, names []string, tmpl Template) {
 	template, err1 := template.ParseFiles(names...)
 	if err1 != nil {
-		c.JSON(http.StatusInternalServerError, "could not parse template: " + err1.Error())
+		c.JSON(http.StatusInternalServerError, "could not parse template: "+err1.Error())
 		return
 	}
 

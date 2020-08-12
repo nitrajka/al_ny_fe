@@ -3,13 +3,16 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
+
+var templatesBase = "./pkg/templates/"
 
 type UserServer struct {
 	apiAddr string
@@ -17,7 +20,7 @@ type UserServer struct {
 	tokens      map[uint64]string
 	oauthConfig *oauth2.Config
 	template    Template
-	selfAddr string
+	selfAddr    string
 }
 
 func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*UserServer, error) {
@@ -80,7 +83,7 @@ func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	r, err := http.NewRequest(http.MethodPost, u.apiAddr + "/login/google", nil)
+	r, err := http.NewRequest(http.MethodPost, u.apiAddr+"/login/google", nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, "")
 		http.Redirect(c.Writer, c.Request, "/", http.StatusTemporaryRedirect)
@@ -116,12 +119,12 @@ func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
 
 	u.tokens[signUpResponse.User.ID] = signUpResponse.Token
 
-	loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: &signUpResponse.User})
+	loadAndExecuteTemplate(c, []string{templatesBase + "displayProfile.html"}, Template{User: &signUpResponse.User})
 }
 
 func (u *UserServer) GetLogin(c *gin.Context) {
-	loadAndExecuteTemplate(c, []string{"./templates/login.html", "./templates/loginSignupForm.html"},
-		Template{Type: &struct{ IsLogin bool }{IsLogin: true }, Msg: u.template.Msg} )
+	loadAndExecuteTemplate(c, []string{templatesBase + "login.html", templatesBase + "loginSignupForm.html"},
+		Template{Type: &struct{ IsLogin bool }{IsLogin: true}, Msg: u.template.Msg})
 	u.template.Reset()
 }
 
@@ -133,9 +136,9 @@ func (u *UserServer) PostLogin(c *gin.Context) {
 
 	bodyContent := parseFormToPayload(c.Request.Form)
 
-	resp, err := http.Post(u.apiAddr + "/login", "application/json", strings.NewReader(bodyContent))
+	resp, err := http.Post(u.apiAddr+"/login", "application/json", strings.NewReader(bodyContent))
 	if err != nil {
-		loadAndExecuteTemplate(c, []string{"./templates/login.html", "./templates/loginSignupForm.html"},
+		loadAndExecuteTemplate(c, []string{templatesBase + "login.html", templatesBase + "loginSignupForm.html"},
 			Template{Msg: err.Error()})
 		return
 	}
@@ -147,12 +150,12 @@ func (u *UserServer) PostLogin(c *gin.Context) {
 
 		err = json.Unmarshal(responseBodyContent, &signUpResponse)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, "could not parse response: " + err.Error())
+			c.JSON(http.StatusInternalServerError, "could not parse response: "+err.Error())
 		}
 
 		u.tokens[signUpResponse.User.ID] = signUpResponse.Token
 
-		loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: &signUpResponse.User})
+		loadAndExecuteTemplate(c, []string{templatesBase + "displayProfile.html"}, Template{User: &signUpResponse.User})
 		return
 	}
 
@@ -176,9 +179,9 @@ func (u *UserServer) Logout(c *gin.Context) {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u.apiAddr + "/logout", strings.NewReader(idS))
+	req, err := http.NewRequest(http.MethodPost, u.apiAddr+"/logout", strings.NewReader(idS))
 	if err != nil {
-		u.template.AddMessage( "sorry, could not logout, try again later")
+		u.template.AddMessage("sorry, could not logout, try again later")
 		u.GetSignup(c)
 		return
 	}
@@ -187,7 +190,7 @@ func (u *UserServer) Logout(c *gin.Context) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		u.template.Set(u.template.Msg + "\n" + "sorry, could not logout, try again later", nil, nil)
+		u.template.Set(u.template.Msg+"\n"+"sorry, could not logout, try again later", nil, nil)
 		u.GetSignup(c)
 		return
 	}
@@ -214,8 +217,8 @@ func (u *UserServer) Logout(c *gin.Context) {
 }
 
 func (u *UserServer) GetSignup(c *gin.Context) {
-	loadAndExecuteTemplate(c, []string{"./templates/signup.html",  "./templates/loginSignupForm.html"},
-		Template{Type: &struct{ IsLogin bool }{IsLogin: false }, Msg: u.template.Msg})
+	loadAndExecuteTemplate(c, []string{templatesBase + "signup.html", templatesBase + "loginSignupForm.html"},
+		Template{Type: &struct{ IsLogin bool }{IsLogin: false}, Msg: u.template.Msg})
 
 	u.template.Reset()
 }
@@ -229,7 +232,7 @@ func (u *UserServer) PostSignup(c *gin.Context) {
 	}
 
 	body := parseFormToPayload(c.Request.Form)
-	resp, err := http.Post(u.apiAddr + "/signup", "application/json", strings.NewReader(body))
+	resp, err := http.Post(u.apiAddr+"/signup", "application/json", strings.NewReader(body))
 	if err != nil {
 		u.template.Set("sorry, could not signup, try again later2", nil, nil)
 		u.GetSignup(c)
@@ -250,7 +253,7 @@ func (u *UserServer) PostSignup(c *gin.Context) {
 
 		u.tokens[sr.User.ID] = sr.Token
 
-		loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: &sr.User})
+		loadAndExecuteTemplate(c, []string{templatesBase + "displayProfile.html"}, Template{User: &sr.User})
 		return
 	}
 
@@ -259,31 +262,30 @@ func (u *UserServer) PostSignup(c *gin.Context) {
 	var msg string
 	err = json.Unmarshal(content, &msg)
 	if err != nil {
-		msg ="sorry, could not signup, try again later4"
+		msg = "sorry, could not signup, try again later4"
 	}
 
 	u.template.Set(msg, nil, nil)
 	u.GetSignup(c)
 	return
-
 }
 
 func (u *UserServer) DisplayUser(c *gin.Context) {
-	idString  := c.Param("id")
+	idString := c.Param("id")
 	id, err := strconv.Atoi(idString)
 	token := u.tokens[uint64(id)]
 
 	//getUser by Id
-	r, err := http.NewRequest(http.MethodGet, u.apiAddr + "/user/" + idString, nil)
+	r, err := http.NewRequest(http.MethodGet, u.apiAddr+"/user/"+idString, nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "could not make request for user info: " + err.Error())
+		c.JSON(http.StatusInternalServerError, "could not make request for user info: "+err.Error())
 		return
 	}
 	r.Header.Add("Authorization", token)
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "could not make request for user info: " + err.Error())
+		c.JSON(http.StatusInternalServerError, "could not make request for user info: "+err.Error())
 		return
 	}
 
@@ -299,7 +301,7 @@ func (u *UserServer) DisplayUser(c *gin.Context) {
 			return
 		}
 
-		loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: user})
+		loadAndExecuteTemplate(c, []string{templatesBase + "displayProfile.html"}, Template{User: user})
 		return
 	}
 
@@ -316,7 +318,7 @@ func (u *UserServer) DisplayUser(c *gin.Context) {
 }
 
 func (u *UserServer) DisplayUserToEdit(c *gin.Context) {
-	idString  := c.Param("id")
+	idString := c.Param("id")
 	id, err := strconv.Atoi(idString)
 	if err != nil {
 		u.template.Set("incorrect ID format", nil, nil)
@@ -325,16 +327,16 @@ func (u *UserServer) DisplayUserToEdit(c *gin.Context) {
 	}
 	token := u.tokens[uint64(id)]
 
-	r, err := http.NewRequest(http.MethodGet, u.apiAddr + "/user/" + idString, nil)
+	r, err := http.NewRequest(http.MethodGet, u.apiAddr+"/user/"+idString, nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "could not make request for user info: " + err.Error())
+		c.JSON(http.StatusInternalServerError, "could not make request for user info: "+err.Error())
 		return
 	}
 	r.Header.Add("Authorization", token)
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "could not make request for user info: " + err.Error())
+		c.JSON(http.StatusInternalServerError, "could not make request for user info: "+err.Error())
 		return
 	}
 
@@ -349,7 +351,7 @@ func (u *UserServer) DisplayUserToEdit(c *gin.Context) {
 			return
 		}
 
-		loadAndExecuteTemplate(c, []string{"./templates/editProfile.html"}, Template{User: user, Msg: u.template.Msg})
+		loadAndExecuteTemplate(c, []string{templatesBase + "editProfile.html"}, Template{User: user, Msg: u.template.Msg})
 		u.template.Reset()
 		return
 	}
@@ -360,12 +362,12 @@ func (u *UserServer) DisplayUserToEdit(c *gin.Context) {
 		msg = "could not load form, please try again later"
 	}
 
-	u.template.Set(u.template.Msg + "\n" +msg, nil, nil)
+	u.template.Set(u.template.Msg+"\n"+msg, nil, nil)
 	u.DisplayUser(c)
 }
 
 func (u *UserServer) EditUser(c *gin.Context) {
-	idString  := c.Param("id")
+	idString := c.Param("id")
 	id, err := strconv.Atoi(idString)
 	if err != nil {
 		u.template.Set("incorrect ID format", nil, nil)
@@ -384,9 +386,9 @@ func (u *UserServer) EditUser(c *gin.Context) {
 
 	bodyPayload := parseFormToPayload(c.Request.Form)
 
-	req, err := http.NewRequest(http.MethodPut, u.apiAddr + "/user/" + idString, strings.NewReader(bodyPayload))
+	req, err := http.NewRequest(http.MethodPut, u.apiAddr+"/user/"+idString, strings.NewReader(bodyPayload))
 	if err != nil {
-		u.template.Set(u.template.Msg + "\n" + "could not connect to server, try again later", nil, nil)
+		u.template.Set(u.template.Msg+"\n"+"could not connect to server, try again later", nil, nil)
 		u.DisplayUser(c)
 		return
 	}
@@ -394,7 +396,7 @@ func (u *UserServer) EditUser(c *gin.Context) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		u.template.Set(u.template.Msg + "\n" + "could not connect to server, try again later", nil, nil)
+		u.template.Set(u.template.Msg+"\n"+"could not connect to server, try again later", nil, nil)
 		u.DisplayUser(c)
 		return
 	}
@@ -406,7 +408,7 @@ func (u *UserServer) EditUser(c *gin.Context) {
 		err = json.Unmarshal(responseBodyContent, &user)
 		if err != nil {
 			//go one step back
-			u.template.Set(u.template.Msg + "\n" + "update was successful", nil, nil)
+			u.template.Set(u.template.Msg+"\n"+"update was successful", nil, nil)
 			u.DisplayUser(c)
 			return
 		}
@@ -427,13 +429,13 @@ func (u *UserServer) EditUser(c *gin.Context) {
 }
 
 func (u *UserServer) ForgotPassword(c *gin.Context) {
-	loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"}, Template{})
+	loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"}, Template{})
 }
 
 func (u *UserServer) SendMail(c *gin.Context) {
 	err := c.Request.ParseForm()
 	if err != nil {
-		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 			Template{Msg: "sorry, could not parse form, please, try again later"})
 		return
 	}
@@ -442,15 +444,15 @@ func (u *UserServer) SendMail(c *gin.Context) {
 
 	//todo:
 	payload := fmt.Sprintf(`{"email": "%s", "redirectUrl": "%s"}`, email, "http://"+u.selfAddr+"/password/forgot/:token")
-	res, err := http.Post(u.apiAddr + "/password/reset", "application/json", strings.NewReader(payload))
+	res, err := http.Post(u.apiAddr+"/password/reset", "application/json", strings.NewReader(payload))
 	if err != nil {
-		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 			Template{Msg: "sorry, could not connect to server, please, try again later"})
 		return
 	}
 
 	if res.StatusCode == http.StatusOK {
-		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 			Template{Msg: "email sent successfully, please follow the link in your post"})
 		return
 	}
@@ -463,7 +465,7 @@ func (u *UserServer) SendMail(c *gin.Context) {
 		msg = "sorry, could not send reset password email, please try again later"
 	}
 
-	loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+	loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 		Template{Msg: msg})
 }
 
@@ -478,7 +480,7 @@ func (u *UserServer) NewPassword(c *gin.Context) {
 
 	if resp.StatusCode == http.StatusOK {
 		//display template to show form for new email
-		loadAndExecuteTemplate(c, []string{"./templates/resetPassword.html"}, Template{Token: token, Mail: mail, ValidToken: true})
+		loadAndExecuteTemplate(c, []string{templatesBase + "resetPassword.html"}, Template{Token: token, Mail: mail, ValidToken: true})
 		return
 	}
 
@@ -488,7 +490,7 @@ func (u *UserServer) NewPassword(c *gin.Context) {
 		msg = "sorry, could not send reset password email, please try again later"
 	}
 
-	loadAndExecuteTemplate(c, []string{"./templates/resetPassword.html"},
+	loadAndExecuteTemplate(c, []string{templatesBase + "resetPassword.html"},
 		Template{Msg: msg, ValidToken: false})
 }
 
@@ -498,13 +500,13 @@ func (u *UserServer) RefreshPassword(c *gin.Context) {
 
 	err := c.Request.ParseForm()
 	if err != nil {
-		loadAndExecuteTemplate(c, []string{"./templates/resetPassword"},
-		Template{ValidToken: true, Mail: mail, Token: token, Msg: "could not parse form"})
+		loadAndExecuteTemplate(c, []string{templatesBase + "resetPassword"},
+			Template{ValidToken: true, Mail: mail, Token: token, Msg: "could not parse form"})
 		return
 	}
 
 	newPassword := c.Request.FormValue("password")
-	payload := fmt.Sprintf(`{"username": "%s", "password": "%s", "token": "%s"}`, mail, newPassword, token )
+	payload := fmt.Sprintf(`{"username": "%s", "password": "%s", "token": "%s"}`, mail, newPassword, token)
 	resp, err := http.Post("/password/renew", "application/json", strings.NewReader(payload))
 
 	content := getResponseContent(resp)
@@ -517,10 +519,10 @@ func (u *UserServer) RefreshPassword(c *gin.Context) {
 			msg = "sorry, could not send reset password email, please try again later"
 		}
 
-		loadAndExecuteTemplate(c, []string{"./templates/resetPassword.html"},
+		loadAndExecuteTemplate(c, []string{templatesBase + "resetPassword.html"},
 			Template{Msg: msg, ValidToken: false})
 		return
 	}
 
-	loadAndExecuteTemplate(c, []string{"./templates/login"}, Template{Msg: "password successfully renewed"})
+	loadAndExecuteTemplate(c, []string{templatesBase + "login"}, Template{Msg: "password successfully renewed"})
 }
