@@ -7,7 +7,6 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"net/http"
-	"net/smtp"
 	"strconv"
 	"strings"
 )
@@ -25,6 +24,7 @@ func NewUserServer(beAddr, clientId, clientSecret string) (*UserServer, error) {
 	us.apiAddr = beAddr
 
 	router := gin.Default()
+	router.GET("/", us.GetLogin)
 	router.GET("/login/google", us.LoginGoogle)
 	router.GET("/login/google/success", us.OauthGoogleCallback)
 	router.GET("/login", us.GetLogin)
@@ -38,8 +38,8 @@ func NewUserServer(beAddr, clientId, clientSecret string) (*UserServer, error) {
 	router.POST("/user/:id/edit", us.EditUser)
 	router.GET("/password/forgot", us.ForgotPassword)
 	router.POST("/password/forgot", us.SendMail)
-	//router.GET("/user/forgot/:token", NewPassword)
-	//router.POST("/user/forgot/:token", RefreshPassword)
+	router.GET("/password/forgot/:token/:mail", us.NewPassword)
+	router.POST("/password/new/:token/:mail", us.RefreshPassword)
 
 	us.oauthConfig = &oauth2.Config{
 		RedirectURL:  "http://localhost:8002/login/google/success",
@@ -84,6 +84,7 @@ func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
 		http.Redirect(c.Writer, c.Request, "/", http.StatusTemporaryRedirect)
 		return
 	}
+
 	r.Header.Add("Authorization", token.AccessToken)
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
@@ -97,6 +98,7 @@ func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
 		err := json.Unmarshal(bodyContent, &msg)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, "could not decode server response")
+			return
 		}
 
 		c.JSON(http.StatusUnauthorized, msg)
@@ -111,7 +113,6 @@ func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
 	}
 
 	u.tokens[signUpResponse.User.ID] = signUpResponse.Token
-	fmt.Println(signUpResponse.Token)
 
 	loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: &signUpResponse.User})
 }
@@ -146,8 +147,6 @@ func (u *UserServer) PostLogin(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, "could not parse response: " + err.Error())
 		}
-
-		fmt.Println(signUpResponse.Token)
 
 		u.tokens[signUpResponse.User.ID] = signUpResponse.Token
 
@@ -191,8 +190,6 @@ func (u *UserServer) Logout(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(resp.StatusCode)
-
 	if resp.StatusCode == http.StatusOK {
 		id, _ := strconv.Atoi(idS)
 		delete(u.tokens, uint64(id))
@@ -209,8 +206,6 @@ func (u *UserServer) Logout(c *gin.Context) {
 	if err != nil {
 		msg = "logout unsuccessful, please, try again later"
 	}
-
-	fmt.Println(msg)
 
 	u.template.Set(msg, nil, nil)
 	u.DisplayUser(c)
@@ -302,7 +297,6 @@ func (u *UserServer) DisplayUser(c *gin.Context) {
 			return
 		}
 
-		fmt.Println(user)
 		loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: user})
 		return
 	}
@@ -387,7 +381,6 @@ func (u *UserServer) EditUser(c *gin.Context) {
 	}
 
 	bodyPayload := parseFormToPayload(c.Request.Form)
-	fmt.Println(bodyPayload)
 
 	req, err := http.NewRequest(http.MethodPut, u.apiAddr + "/user/" + idString, strings.NewReader(bodyPayload))
 	if err != nil {
@@ -406,13 +399,12 @@ func (u *UserServer) EditUser(c *gin.Context) {
 
 	responseBodyContent := getResponseContent(resp)
 
-	fmt.Println(resp.StatusCode)
 	if resp.StatusCode == http.StatusOK {
 		var user *User
 		err = json.Unmarshal(responseBodyContent, &user)
 		if err != nil {
 			//go one step back
-			u.template.Set(u.template.Msg + "\n" + "update was successfulr", nil, nil)
+			u.template.Set(u.template.Msg + "\n" + "update was successful", nil, nil)
 			u.DisplayUser(c)
 			return
 		}
@@ -437,17 +429,96 @@ func (u *UserServer) ForgotPassword(c *gin.Context) {
 }
 
 func (u *UserServer) SendMail(c *gin.Context) {
-
-	auth := smtp.PlainAuth("", "piotr@mailtrap.io", "extremely_secret_pass", "smtp.mailtrap.io")
-
-	// Here we do it all: connect to our server, set up a message and send it
-	to := []string{"billy@microsoft.com"}
-	msg := []byte("To: billy@microsoft.com\r\n" +
-		"Subject: Why are you not using Mailtrap yet?\r\n" +
-		"\r\n" +
-		"Here’s the space for our great sales pitch\r\n")
-	err := smtp.SendMail("smtp.mailtrap.io:25", auth, "piotr@mailtrap.io", to, msg)
+	err := c.Request.ParseForm()
 	if err != nil {
-		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"}, Template{Msg: "sorry, could not send email, please, try again later"})
+		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+			Template{Msg: "sorry, could not parse form, please, try again later"})
+		return
 	}
+
+	email := c.Request.Form.Get("username")
+
+	//todo:
+	payload := fmt.Sprintf(`{"email": "%s", "redirectUrl": "%s"}`, email, "http://localhost:8002/password/forgot/:token")
+	res, err := http.Post(u.apiAddr + "/password/reset", "application/json", strings.NewReader(payload))
+	if err != nil {
+		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+			Template{Msg: "sorry, could not connect to server, please, try again later"})
+		return
+	}
+
+	if res.StatusCode == http.StatusOK {
+		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+			Template{Msg: "email sent successfully, please follow the link in your post"})
+		return
+	}
+
+	content := getResponseContent(res)
+
+	var msg string
+	err = json.Unmarshal(content, &msg)
+	if err != nil {
+		msg = "sorry, could not send reset password email, please try again later"
+	}
+
+	loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},
+		Template{Msg: msg})
+}
+
+func (u *UserServer) NewPassword(c *gin.Context) {
+	token := c.Param("token")
+	mail := c.Param("mail")
+
+	payload := fmt.Sprintf(`{"token": "%s", "email": "%s"}`, token, mail)
+	resp, err := http.Post(u.apiAddr+"/password/reset/validate", "application/json", strings.NewReader(payload))
+
+	content := getResponseContent(resp)
+
+	if resp.StatusCode == http.StatusOK {
+		//display template to show form for new email
+		loadAndExecuteTemplate(c, []string{"./templates/resetPassword.html"}, Template{Token: token, Mail: mail, ValidToken: true})
+		return
+	}
+
+	var msg string
+	err = json.Unmarshal(content, &msg)
+	if err != nil {
+		msg = "sorry, could not send reset password email, please try again later"
+	}
+
+	loadAndExecuteTemplate(c, []string{"./templates/resetPassword.html"},
+		Template{Msg: msg, ValidToken: false})
+}
+
+func (u *UserServer) RefreshPassword(c *gin.Context) {
+	token := c.Param("token")
+	mail := c.Param("mail")
+
+	err := c.Request.ParseForm()
+	if err != nil {
+		loadAndExecuteTemplate(c, []string{"./templates/resetPassword"},
+		Template{ValidToken: true, Mail: mail, Token: token, Msg: "could not parse form"})
+		return
+	}
+
+	newPassword := c.Request.FormValue("password")
+	payload := fmt.Sprintf(`{"username": "%s", "password": "%s", "token": "%s"}`, mail, newPassword, token )
+	resp, err := http.Post("/password/renew", "application/json", strings.NewReader(payload))
+
+	content := getResponseContent(resp)
+
+	if resp.StatusCode != http.StatusOK {
+		var msg string
+
+		err = json.Unmarshal(content, &msg)
+		if err != nil {
+			msg = "sorry, could not send reset password email, please try again later"
+		}
+
+		loadAndExecuteTemplate(c, []string{"./templates/resetPassword.html"},
+			Template{Msg: msg, ValidToken: false})
+		return
+	}
+
+	loadAndExecuteTemplate(c, []string{"./templates/login"}, Template{Msg: "password successfully renewed"})
 }

@@ -25,6 +25,9 @@ type Template struct {
 	Msg string
 	Type *struct { IsLogin bool}
 	User *User
+	Token string
+	Mail string
+	ValidToken bool
 }
 
 func (t *Template) Set(msg string, user *User, typ *struct { IsLogin bool}) {
@@ -37,6 +40,9 @@ func (t *Template) Reset() {
 	t.Msg = ""
 	t.User = nil
 	t.Type = nil
+	t.Token = ""
+	t.Mail = ""
+	t.ValidToken = false
 }
 
 func (t *Template) AddMessage(msg string)  {
