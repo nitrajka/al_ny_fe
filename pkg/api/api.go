@@ -14,12 +14,13 @@ import (
 type UserServer struct {
 	apiAddr string
 	*gin.Engine
-	tokens map[uint64]string
+	tokens      map[uint64]string
 	oauthConfig *oauth2.Config
-	template Template
+	template    Template
+	selfAddr string
 }
 
-func NewUserServer(beAddr, clientId, clientSecret string) (*UserServer, error) {
+func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*UserServer, error) {
 	us := new(UserServer)
 	us.apiAddr = beAddr
 
@@ -49,6 +50,7 @@ func NewUserServer(beAddr, clientId, clientSecret string) (*UserServer, error) {
 		Endpoint:     google.Endpoint,
 	}
 
+	us.selfAddr = selfAddr
 	us.Engine = router
 	us.tokens = make(map[uint64]string)
 	return us, nil
@@ -439,7 +441,7 @@ func (u *UserServer) SendMail(c *gin.Context) {
 	email := c.Request.Form.Get("username")
 
 	//todo:
-	payload := fmt.Sprintf(`{"email": "%s", "redirectUrl": "%s"}`, email, "http://localhost:8002/password/forgot/:token")
+	payload := fmt.Sprintf(`{"email": "%s", "redirectUrl": "%s"}`, email, "http://"+u.selfAddr+"/password/forgot/:token")
 	res, err := http.Post(u.apiAddr + "/password/reset", "application/json", strings.NewReader(payload))
 	if err != nil {
 		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"},

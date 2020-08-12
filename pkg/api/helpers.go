@@ -79,7 +79,7 @@ func generateStateOauthCookie(w http.ResponseWriter) string {
 	return state
 }
 
-func (u * UserServer) getUserDataFromGoogle(code string) ([]byte, *oauth2.Token, error) {
+func (u *UserServer) getUserDataFromGoogle(code string) ([]byte, *oauth2.Token, error) {
 	// Use code to get token and get user info from Google.
 
 	token, err := u.oauthConfig.Exchange(context.Background(), code)

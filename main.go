@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/joho/godotenv"
-	"github.com/nitrajka/al_ny_fe/api"
+	"github.com/nitrajka/al_ny_fe/pkg/api"
 	"os"
 )
 
@@ -15,16 +15,16 @@ func main() {
 
 	clientId := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+	selfAddr := LoadEnvAddress("HOST", "PORT", "8080", "localhost")
 
 	server, err := api.NewUserServer(
 		"http://" +LoadEnvAddress("BACK_END_HOST", "BACK_END_PORT", "8000", "localhost"),
-		clientId, clientSecret)
+		clientId, clientSecret, selfAddr)
 	if err != nil {
 		exit(fmt.Sprintf("application terminated: %v", err))
 	}
 
-	err = server.Engine.Run(
-		LoadEnvAddress("HOST", "PORT", "8080", "localhost"))
+	err = server.Engine.Run(selfAddr)
 	if err != nil {
 		exit("app terminated")
 	}
