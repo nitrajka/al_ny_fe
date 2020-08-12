@@ -15,7 +15,7 @@ func main() {
 
 	server, err := api.NewUserServer(backEndAddr, clientId, clientSecret, selfAddr)
 	if err != nil {
-		exit(fmt.Sprintf("application terminated: %v", err))
+		exit(fmt.Sprintf("application terminated:%v", err))
 	}
 
 	err = server.Engine.Run(selfAddr)
