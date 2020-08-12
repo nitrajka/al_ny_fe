@@ -13,8 +13,12 @@ func main() {
 		exit("could not load .env variables")
 	}
 
+	clientId := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+
 	server, err := api.NewUserServer(
-		"http://" +LoadEnvAddress("BACK_END_HOST", "BACK_END_PORT", "8000", "localhost"))
+		"http://" +LoadEnvAddress("BACK_END_HOST", "BACK_END_PORT", "8000", "localhost"),
+		clientId, clientSecret)
 	if err != nil {
 		exit(fmt.Sprintf("application terminated: %v", err))
 	}

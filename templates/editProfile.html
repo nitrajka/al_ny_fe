@@ -6,16 +6,15 @@
 </head>
 <body>
     <h1>Profile</h1>
-    {{ .Msg}}
     <form method="POST" action="/user/{{ .User.ID}}/edit">
-        <label>Username:</label><br />
-        <input type="email" name="email" value="{{ .User.Username}}" {{if .User.IsGoogleRegistered}}disabled{{end}}><br />
+        <label>Username:</label>
+        {{if .User.IsGoogleRegistered}} <span>{{ .User.Username}}</span><br /> {{else}} <br /><input type="email" name="username" value="{{ .User.Username}}"/><br />{{end}}
         <label>Full Name:</label><br />
-        <input type="text" name="fullname" value="{{ .User.FullName}}"><br />
+        <input type="text" name="fullname" value="{{ .User.FullName}}"/><br />
         <label>Phone:</label><br />
-        <input type="text" name="phone" value="{{ .User.Phone}}"><br />
+        <input type="text" name="phone" value="{{ .User.Phone}}"/><br />
         <label>Address:</label><br />
-        <input type="text" name="address" value="{{ .User.Address}}"><br />
+        <input type="text" name="address" value="{{ .User.Address}}"/><br />
         <input type="submit">
     </form>
 

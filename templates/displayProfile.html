@@ -8,19 +8,24 @@
     <h1>Profile</h1>
     <table>
         <tr>
-            <th>Full Name</th>
-            <th>Address</th>
-            <th>Phone</th>
-            <th>Username</th>
+            <td>Full Name</td>
+            <td>{{ .User.FullName}}</td>
         </tr>
         <tr>
-            <td>{{ .User.FullName}}</td>
+            <td>Address</td>
             <td>{{ .User.Address}}</td>
+        </tr>
+        <tr>
+            <td>Phone</td>
             <td>{{ .User.Phone}}</td>
+        </tr>
+        <tr>
+            <td>Username</td>
             <td>{{ .User.Username}}</td>
         </tr>
     </table>
 
     <a href="/user/{{ .User.ID}}/edit">Edit</a>
+    <a href="/logout/{{ .User.ID}}">Log out</a>
 </body>
 </html>

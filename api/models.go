@@ -1,10 +1,5 @@
 package api
 
-type Message struct {
-	Msg string
-	User User
-}
-
 type User struct {
 	ID       uint64 `json:"id"`
 	Username string `json:"username"`
@@ -15,7 +10,6 @@ type User struct {
 }
 
 type UpdateUserBody struct {
-	ID       uint64 `json:"id"`
 	Username string `json:"username"`
 	FullName string `json:"fullname"`
 	Phone    string `json:"phone"`
@@ -27,7 +21,28 @@ type SignUpResponse struct {
 	User User 		`json:"user"`
 }
 
-type Form struct {
+type Template struct {
 	Msg string
-	Type struct { IsLogin bool}
+	Type *struct { IsLogin bool}
+	User *User
+}
+
+func (t *Template) Set(msg string, user *User, typ *struct { IsLogin bool}) {
+	t.Msg = msg
+	t.User = user
+	t.Type = typ
+}
+
+func (t *Template) Reset() {
+	t.Msg = ""
+	t.User = nil
+	t.Type = nil
+}
+
+func (t *Template) AddMessage(msg string)  {
+	if t.Msg != "" {
+		t.Msg += "\n"
+	}
+
+	t.Msg += msg
 }
