@@ -46,7 +46,7 @@ func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*Use
 	router.POST("/password/new/:token/:mail", us.RefreshPassword)
 
 	us.oauthConfig = &oauth2.Config{
-		RedirectURL:  selfAddr + "/login/google/success",
+		RedirectURL:  "https://al-ny-fe.herokuapp.com/login/google/success",
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
