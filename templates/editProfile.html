@@ -15,8 +15,8 @@
         <input type="text" name="phone" value="{{ .User.Phone}}"/><br />
         <label>Address:</label><br />
         <input type="text" name="address" value="{{ .User.Address}}"/><br />
-        <input type="submit">
+        <input type="submit" value="Save&Continue">
     </form>
-
+    <a href="/user/{{ .User.ID}}"> Cancel </a>
 </body>
 </html>

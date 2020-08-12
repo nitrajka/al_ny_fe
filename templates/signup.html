@@ -8,6 +8,7 @@
     <h1>Signup</h1>
     {{ .Msg}}
     {{template "loginSignupForm" .Type}}
-    <a href="/login">Log in</a>
+    <a href="/login">Existing user? Log in</a><br/>
+    <a href="/login/google">Sign up with Google</a>
 </body>
 </html>

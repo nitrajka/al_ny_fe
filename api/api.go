@@ -1,22 +1,15 @@
 package api
 
 import (
-	"bytes"
-	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"html/template"
-	"io/ioutil"
-	"math/rand"
 	"net/http"
-	"net/url"
+	"net/smtp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type UserServer struct {
@@ -43,8 +36,8 @@ func NewUserServer(beAddr, clientId, clientSecret string) (*UserServer, error) {
 	router.GET("/user/:id", us.DisplayUser)
 	router.GET("/user/:id/edit", us.DisplayUserToEdit)
 	router.POST("/user/:id/edit", us.EditUser)
-	//router.GET("/user/forgot", ForgotPassword)
-	//router.POST("/user/forgot", SendEmail)
+	router.GET("/password/forgot", us.ForgotPassword)
+	router.POST("/password/forgot", us.SendMail)
 	//router.GET("/user/forgot/:token", NewPassword)
 	//router.POST("/user/forgot/:token", RefreshPassword)
 
@@ -61,32 +54,10 @@ func NewUserServer(beAddr, clientId, clientSecret string) (*UserServer, error) {
 	return us, nil
 }
 
-func loadAndExecuteTemplate(c *gin.Context, names []string, tmpl Template) {
-	template, err1 := template.ParseFiles(names...)
-	if err1 != nil {
-		c.JSON(http.StatusInternalServerError, "could not parse template: " + err1.Error())
-		return
-	}
-
-	_ = template.Execute(c.Writer, tmpl)
-}
-
 func (u *UserServer) LoginGoogle(c *gin.Context) {
 	oauthState := generateStateOauthCookie(c.Writer)
 	t := u.oauthConfig.AuthCodeURL(oauthState)
 	c.Redirect(http.StatusTemporaryRedirect, t)
-}
-
-func generateStateOauthCookie(w http.ResponseWriter) string {
-	var expiration = time.Now().Add(365 * 24 * time.Hour)
-
-	b := make([]byte, 16)
-	rand.Read(b)
-	state := base64.URLEncoding.EncodeToString(b)
-	cookie := http.Cookie{Name: "oauthstate", Value: state, Expires: expiration}
-	http.SetCookie(w, &cookie)
-
-	return state
 }
 
 func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
@@ -145,43 +116,10 @@ func (u *UserServer) OauthGoogleCallback(c *gin.Context) {
 	loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: &signUpResponse.User})
 }
 
-const oauthGoogleUrlAPI = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
-
-func (u * UserServer) getUserDataFromGoogle(code string) ([]byte, *oauth2.Token, error) {
-	// Use code to get token and get user info from Google.
-
-	token, err := u.oauthConfig.Exchange(context.Background(), code)
-	if err != nil {
-		return nil, nil, fmt.Errorf("code exchange wrong: %s", err.Error())
-	}
-	response, err := http.Get(oauthGoogleUrlAPI + token.AccessToken)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed getting user info: %s", err.Error())
-	}
-	defer response.Body.Close()
-	contents, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed read response: %s", err.Error())
-	}
-	return contents, token, nil
-}
-
 func (u *UserServer) GetLogin(c *gin.Context) {
 	loadAndExecuteTemplate(c, []string{"./templates/login.html", "./templates/loginSignupForm.html"},
 		Template{Type: &struct{ IsLogin bool }{IsLogin: true }, Msg: u.template.Msg} )
 	u.template.Reset()
-}
-
-func getResponseContent(resp *http.Response) []byte {
-	var bodyBytes []byte
-	if resp.Body != nil {
-		bodyBytes, _ = ioutil.ReadAll(resp.Body)
-	}
-
-	// Restore the io.ReadCloser to its original state
-	resp.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-
-	return bodyBytes
 }
 
 func (u *UserServer) PostLogin(c *gin.Context) {
@@ -223,8 +161,6 @@ func (u *UserServer) PostLogin(c *gin.Context) {
 	if err != nil {
 		msg = "could not login successfully, please try again later"
 	}
-
-	//loadAndExecuteTemplate(c, []string{"./templates/login.html"}, Template{Msg: msg, Type: struct{ IsLogin bool }{IsLogin: true }})
 
 	u.template.Set(msg, nil, nil)
 	u.GetLogin(c)
@@ -335,28 +271,6 @@ func (u *UserServer) PostSignup(c *gin.Context) {
 
 }
 
-func parseFormToPayload(values url.Values) string {
-	buff := new(bytes.Buffer)
-	buff.Write([]byte("{"))
-	for k, v := range values {
-		buff.Write([]byte("\""))
-		buff.Write([]byte(k))
-		buff.Write([]byte("\""))
-		buff.Write([]byte(":"))
-		buff.Write([]byte("\""))
-		buff.Write([]byte(v[0]))
-		buff.Write([]byte("\""))
-		buff.Write([]byte(","))
-		//fmt.Printf("%v = %v\n", k, v)
-	}
-	payload := buff.String()
-	buff.Reset()
-	buff.Write([]byte(payload[:len(payload)-1]))
-	buff.Write([]byte("}"))
-
-	return buff.String()
-}
-
 func (u *UserServer) DisplayUser(c *gin.Context) {
 	idString  := c.Param("id")
 	id, err := strconv.Atoi(idString)
@@ -444,7 +358,6 @@ func (u *UserServer) DisplayUserToEdit(c *gin.Context) {
 		return
 	}
 
-
 	var msg string
 	err = json.Unmarshal(responseBodyContent, &msg)
 	if err != nil {
@@ -463,8 +376,8 @@ func (u *UserServer) EditUser(c *gin.Context) {
 		u.GetLogin(c)
 		return
 	}
-	token := u.tokens[uint64(id)]
 
+	token := u.tokens[uint64(id)]
 
 	err = c.Request.ParseForm()
 	if err != nil {
@@ -491,8 +404,6 @@ func (u *UserServer) EditUser(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("server connected")
-
 	responseBodyContent := getResponseContent(resp)
 
 	fmt.Println(resp.StatusCode)
@@ -506,11 +417,8 @@ func (u *UserServer) EditUser(c *gin.Context) {
 			return
 		}
 
-		fmt.Println(user)
 		path := "/user/" + strconv.Itoa(int(user.ID))
-		fmt.Println(path)
 		c.Redirect(http.StatusFound, path)
-		//loadAndExecuteTemplate(c, []string{"./templates/displayProfile.html"}, Template{User: user})
 		return
 	}
 
@@ -524,19 +432,22 @@ func (u *UserServer) EditUser(c *gin.Context) {
 	u.DisplayUserToEdit(c)
 }
 
-func (u *UserServer) getUser(token string) *User {
-	req, _ := http.NewRequest(http.MethodGet, u.apiAddr + "/user", nil )
-	resp, _ := http.DefaultClient.Do(req)
+func (u *UserServer) ForgotPassword(c *gin.Context) {
+	loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"}, Template{})
+}
 
-	var bodyBytes []byte
-	if req.Body != nil {
-		bodyBytes, _ = ioutil.ReadAll(resp.Body)
+func (u *UserServer) SendMail(c *gin.Context) {
+
+	auth := smtp.PlainAuth("", "piotr@mailtrap.io", "extremely_secret_pass", "smtp.mailtrap.io")
+
+	// Here we do it all: connect to our server, set up a message and send it
+	to := []string{"billy@microsoft.com"}
+	msg := []byte("To: billy@microsoft.com\r\n" +
+		"Subject: Why are you not using Mailtrap yet?\r\n" +
+		"\r\n" +
+		"Here’s the space for our great sales pitch\r\n")
+	err := smtp.SendMail("smtp.mailtrap.io:25", auth, "piotr@mailtrap.io", to, msg)
+	if err != nil {
+		loadAndExecuteTemplate(c, []string{"./templates/forgotPassword.html"}, Template{Msg: "sorry, could not send email, please, try again later"})
 	}
-	// Restore the io.ReadCloser to its original state
-	resp.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-
-	var user *User
-	_ = json.Unmarshal(bodyBytes, &user)
-
-	return user
 }
