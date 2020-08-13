@@ -46,7 +46,7 @@ func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*Use
 	router.POST("/password/new/:token/:mail", us.RefreshPassword)
 
 	us.oauthConfig = &oauth2.Config{
-		RedirectURL:  "https://al-ny-fe.herokuapp.com/login/google/success",
+		RedirectURL:  selfAddr + "/login/google/success",
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
@@ -441,15 +441,26 @@ func (u *UserServer) SendMail(c *gin.Context) {
 	}
 
 	email := c.Request.Form.Get("username")
-
-	//todo:
-	payload := fmt.Sprintf(`{"email": "%s", "redirectUrl": "%s"}`, email, "http://"+u.selfAddr+"/password/forgot/:token")
-	res, err := http.Post(u.apiAddr+"/password/reset", "application/json", strings.NewReader(payload))
+	path := u.selfAddr+"/password/forgot/"
+	payload := fmt.Sprintf(`{"redirect":"%v", "email": "%v"}`, path, email) //, email, u.selfAddr+"/password/forgot/")
+	//res, err := http.Post(u.apiAddr+"/password/reset", "application/json", strings.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, u.apiAddr+"/password/reset", strings.NewReader(payload))
 	if err != nil {
+		fmt.Println(err)
+		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
+			Template{Msg: "sorry, could not create request to server, please, try again later"})
+		return
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err)
 		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 			Template{Msg: "sorry, could not connect to server, please, try again later"})
 		return
 	}
+
+	fmt.Println(res.StatusCode)
 
 	if res.StatusCode == http.StatusOK {
 		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
@@ -507,11 +518,17 @@ func (u *UserServer) RefreshPassword(c *gin.Context) {
 
 	newPassword := c.Request.FormValue("password")
 	payload := fmt.Sprintf(`{"username": "%s", "password": "%s", "token": "%s"}`, mail, newPassword, token)
-	resp, err := http.Post("/password/renew", "application/json", strings.NewReader(payload))
+	resp, err := http.Post(u.apiAddr + "/password/renew", "application/json", strings.NewReader(payload))
+	if err != nil {
+		loadAndExecuteTemplate(c, []string{templatesBase + "resetPassword.html"},
+			Template{Msg: fmt.Sprintf("could not renew password: %v", err.Error()), Token: token, Mail: mail})
+		return
+	}
 
-	content := getResponseContent(resp)
+	fmt.Println(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
+		content := getResponseContent(resp)
 		var msg string
 
 		err = json.Unmarshal(content, &msg)
@@ -524,5 +541,6 @@ func (u *UserServer) RefreshPassword(c *gin.Context) {
 		return
 	}
 
-	loadAndExecuteTemplate(c, []string{templatesBase + "login"}, Template{Msg: "password successfully renewed"})
+	loadAndExecuteTemplate(c, []string{templatesBase + "login.html", templatesBase + "loginSignupForm.html"},
+		Template{Msg: "password successfully renewed", Type: &struct{ IsLogin bool }{IsLogin: true}})
 }

@@ -4,5 +4,6 @@ go 1.12
 
 require (
 	github.com/gin-gonic/gin v1.6.3
+	github.com/joho/godotenv v1.3.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 )
