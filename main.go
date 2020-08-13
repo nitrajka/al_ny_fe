@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/nitrajka/al_ny_fe/pkg/api"
 )
 
 func main() {
-	godotenv.Load()
 	clientId := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	selfPort := ":" + os.Getenv("PORT")

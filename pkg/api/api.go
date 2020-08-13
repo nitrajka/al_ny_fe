@@ -441,9 +441,15 @@ func (u *UserServer) SendMail(c *gin.Context) {
 	}
 
 	email := c.Request.Form.Get("username")
+	if email != "alexkanyitraiova@gmail.com" && email != "cyza.inc@gmail.com" && email != "adminterm@protonmail.com" &&
+		email != "cfbzyrkqxzuotzfsal@awdrt.org" {
+		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
+			Template{Msg: "For security reasons, this email is not allowed to reset password. Please contact the author to give this email a permission."})
+		return
+	}
+
 	path := u.selfAddr+"/password/forgot/"
-	payload := fmt.Sprintf(`{"redirect":"%v", "email": "%v"}`, path, email) //, email, u.selfAddr+"/password/forgot/")
-	//res, err := http.Post(u.apiAddr+"/password/reset", "application/json", strings.NewReader(payload))
+	payload := fmt.Sprintf(`{"redirect":"%v", "email": "%v"}`, path, email)
 	req, err := http.NewRequest(http.MethodPost, u.apiAddr+"/password/reset", strings.NewReader(payload))
 	if err != nil {
 		fmt.Println(err)
