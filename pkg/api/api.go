@@ -12,7 +12,7 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-var templatesBase = "./pkg/templates/"
+var templatesBase = "./pkg/static/"
 
 type UserServer struct {
 	apiAddr string
@@ -29,6 +29,7 @@ func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*Use
 
 	router := gin.Default()
 	router.GET("/", us.GetLogin)
+	router.Static("/static", "./pkg/static/")
 	router.GET("/login/google", us.LoginGoogle)
 	router.GET("/login/google/success", us.OauthGoogleCallback)
 	router.GET("/login", us.GetLogin)
@@ -45,6 +46,7 @@ func NewUserServer(beAddr, clientId, clientSecret string, selfAddr string) (*Use
 	router.GET("/password/forgot/:token/:mail", us.NewPassword)
 	router.POST("/password/new/:token/:mail", us.RefreshPassword)
 
+	router.NoRoute(us.GetLogin)
 	us.oauthConfig = &oauth2.Config{
 		RedirectURL:  selfAddr + "/login/google/success",
 		ClientID:     clientId,
@@ -154,8 +156,8 @@ func (u *UserServer) PostLogin(c *gin.Context) {
 		}
 
 		u.tokens[signUpResponse.User.ID] = signUpResponse.Token
-
-		loadAndExecuteTemplate(c, []string{templatesBase + "displayProfile.html"}, Template{User: &signUpResponse.User})
+		c.Redirect(http.StatusFound, u.selfAddr + "/user/" + strconv.Itoa(int(signUpResponse.User.ID)))
+		//loadAndExecuteTemplate(c, []string{templatesBase + "displayProfile.html"}, Template{User: &signUpResponse.User})
 		return
 	}
 
@@ -273,6 +275,11 @@ func (u *UserServer) PostSignup(c *gin.Context) {
 func (u *UserServer) DisplayUser(c *gin.Context) {
 	idString := c.Param("id")
 	id, err := strconv.Atoi(idString)
+	if err != nil {
+		u.template.Set("invalid user ID, please, login", nil, nil)
+		c.Redirect(http.StatusFound, u.selfAddr + "/login")
+		return
+	}
 	token := u.tokens[uint64(id)]
 
 	//getUser by Id
@@ -296,7 +303,7 @@ func (u *UserServer) DisplayUser(c *gin.Context) {
 		err = json.Unmarshal(responseBodyContent, &user)
 		if err != nil {
 			//go to login
-			u.template.Set("could not proceede, please try again later", nil, nil)
+			u.template.Set("could not procede, please try again later", nil, nil)
 			u.GetLogin(c)
 			return
 		}
@@ -441,18 +448,11 @@ func (u *UserServer) SendMail(c *gin.Context) {
 	}
 
 	email := c.Request.Form.Get("username")
-	if email != "alexkanyitraiova@gmail.com" && email != "cyza.inc@gmail.com" && email != "adminterm@protonmail.com" &&
-		email != "cfbzyrkqxzuotzfsal@awdrt.org" {
-		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
-			Template{Msg: "For security reasons, this email is not allowed to reset password. Please contact the author to give this email a permission."})
-		return
-	}
-
 	path := u.selfAddr+"/password/forgot/"
 	payload := fmt.Sprintf(`{"redirect":"%v", "email": "%v"}`, path, email)
+
 	req, err := http.NewRequest(http.MethodPost, u.apiAddr+"/password/reset", strings.NewReader(payload))
 	if err != nil {
-		fmt.Println(err)
 		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 			Template{Msg: "sorry, could not create request to server, please, try again later"})
 		return
@@ -460,13 +460,10 @@ func (u *UserServer) SendMail(c *gin.Context) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Println(err)
 		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
 			Template{Msg: "sorry, could not connect to server, please, try again later"})
 		return
 	}
-
-	fmt.Println(res.StatusCode)
 
 	if res.StatusCode == http.StatusOK {
 		loadAndExecuteTemplate(c, []string{templatesBase + "forgotPassword.html"},
@@ -530,8 +527,6 @@ func (u *UserServer) RefreshPassword(c *gin.Context) {
 			Template{Msg: fmt.Sprintf("could not renew password: %v", err.Error()), Token: token, Mail: mail})
 		return
 	}
-
-	fmt.Println(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		content := getResponseContent(resp)
